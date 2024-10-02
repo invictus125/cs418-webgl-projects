@@ -22,9 +22,9 @@ void main() {
     // b = sin(b_seed * r_seed * seconds);
 
     // Option 2: Dancing ovals
-    r_seed = (x*x + 0.7*x*y + y*y + 1.0);
-    g_seed = (x*x - 0.5*x*y + y*y + 2.0);
-    b_seed = (x*x + 0.5*x*y + y*y + 5.0);
+    r_seed = 1.0 / (x*x + 0.7*x*y + y*y + 1.0);
+    g_seed = (x*x - x*y + 0.5*y*y + 2.0);
+    b_seed = (x*x + 0.5*x*y + 0.25*y*y + 5.0);
 
     r = sin(r_seed * seconds);
     g = cos(g_seed * seconds);
