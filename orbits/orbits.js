@@ -60,6 +60,68 @@ var octahedron = {
 }
 
 /**
+ * Sends per-vertex data to the GPU and connects it to a VS input
+ * 
+ * @param data    a 2D array of per-vertex data (e.g. [[x,y,z,w],[x,y,z,w],...])
+ * @param loc     the layout location of the vertex shader's `in` attribute
+ * 
+ * @returns the ID of the buffer in GPU memory; useful for changing data later
+ */
+function supplyDataBuffer(data, loc) {
+    const buf = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+    const f32 = new Float32Array(data.flat())
+    gl.bufferData(gl.ARRAY_BUFFER, f32, gl.STATIC_DRAW)
+    
+    gl.vertexAttribPointer(loc, data[0].length, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(loc)
+    
+    return buf;
+}
+
+/**
+ * Creates a Vertex Array Object and puts into it all of the data in the given
+ * JSON structure, which should have the following form:
+ * 
+ * ````
+ * {"triangles": a list of lists of indices of vertices
+ * ,"attributes":
+ *  [ a list of 1-, 2-, 3-, or 4-vectors, one per vertex to go in location 0
+ *  , a list of 1-, 2-, 3-, or 4-vectors, one per vertex to go in location 1
+ *  , ...
+ *  ]
+ * }
+ * ````
+ * 
+ * @returns an object with four keys:
+ *  - mode = the 1st argument for gl.drawElements
+ *  - count = the 2nd argument for gl.drawElements
+ *  - type = the 3rd argument for gl.drawElements
+ *  - vao = the vertex array object for use with gl.bindVertexArray
+ */
+function setupGeometry(geom) {
+    var triangleArray = gl.createVertexArray()
+    gl.bindVertexArray(triangleArray)
+
+    for(let i=0; i < geom.attributes.length; i++) {
+        let data = geom.attributes[i]
+        supplyDataBuffer(data, i)
+    }
+
+    var indices = new Uint16Array(geom.triangles.flat())
+    var indexBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW)
+
+    return {
+        mode: gl.TRIANGLES,
+        count: indices.length,
+        type: gl.UNSIGNED_SHORT,
+        vao: triangleArray
+    }
+}
+
+/**
  * Resizes the canvas to the largest square the screen can hold
  */
 function fillScreen() {
