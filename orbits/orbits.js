@@ -195,6 +195,19 @@ function compile(vs_source, fs_source) {
 }
 
 /**
+ * Creates matrices for each object and sends them into the GPU as uniforms.
+ * Matrices will be based on the time elapsed in the animation.
+ *
+ * @param seconds The number of seconds into the animation we are
+ */
+function processMatrices(seconds) {
+    // Handle the animation of the sun
+    var sunRotation = zRotationMatrix(seconds, 2.0);
+    var sunScale = scaleMatrix(2.0);
+    gl.uniform4mat(program.uniforms.sunmatrix, matMul(sunScale, sunRotation));
+}
+
+/**
  * Clears the screen, sends uniforms and input geometry, and asks the GPU to draw the frame
  *
  * @param {Number} seconds - the number of seconds since the animation began
@@ -203,6 +216,8 @@ function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(program);
     gl.uniform1f(program.uniforms.seconds, seconds);
+
+    processMatrices(seconds);
 
     // TODO: Update geometry for orbital objects
     const connection = gl.TRIANGLES;
