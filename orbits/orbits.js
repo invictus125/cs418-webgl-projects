@@ -1,7 +1,7 @@
 /**
  * Set up entity description data to be projected into the scene.
  */
-var tetrahedron = {
+var tetrahedron_data = {
     triangles: [
         [0,1,2],
         [0,2,3],
@@ -26,7 +26,7 @@ var tetrahedron = {
     ]
 };
 
-var octahedron = {
+var octahedron_data = {
     triangles: [
         [0,1,2],
         [0,2,3],
@@ -57,7 +57,7 @@ var octahedron = {
             [0,0.5,0.5]
         ]
     ]
-}
+};
 
 /**
  * Sends per-vertex data to the GPU and connects it to a VS input
@@ -136,6 +136,7 @@ function fillScreen() {
     canvas.style.height = '';
     if (window.gl) {
         gl.viewport(0,0, canvas.width, canvas.height);
+        window.perspective = m4perspNegZ(0.1, 10, 1.5, canvas.width, canvas.height);
     }
 }
 
@@ -201,10 +202,13 @@ function compile(vs_source, fs_source) {
  * @param seconds The number of seconds into the animation we are
  */
 function processMatrices(seconds) {
+    var view = m4view([1,2,3], [0,0,0], [0,1,0]);
+    gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
+
     // Handle the animation of the sun
-    var sunRotation = zRotationMatrix(seconds, 2.0);
-    var sunScale = scaleMatrix(2.0);
-    gl.uniform4mat(program.uniforms.sunmatrix, matMul(sunScale, sunRotation));
+    var sunRotation = m4rotZ(seconds / 2.0);
+    var sunScale = m4scale(2.0, 2.0, 2.0);
+    gl.uniformMatrix4fv(program.uniforms.sunmatrix, false, m4mul(perspective, view, sunRotation, sunScale));
 }
 
 /**
@@ -214,25 +218,35 @@ function processMatrices(seconds) {
  */
 function draw(seconds) {
     gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program);
     gl.uniform1f(program.uniforms.seconds, seconds);
 
+    gl.bindVertexArray(octahedron.vao);
+
     processMatrices(seconds);
 
-    // TODO: Update geometry for orbital objects
-    const connection = gl.TRIANGLES;
-    gl.drawArrays(connection, 0, 6);
+    // Draw the sun
+    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0);
 }
 
 /**
  * Fetches, reads, and compiles GLSL; sets globals, begins animation
  */
  async function setup() {
-    window.gl = document.querySelector('canvas').getContext('webgl2');
+    window.gl = document.querySelector('canvas').getContext(
+        'webgl2',
+        {antialias: false, depth:true, preserveDrawingBuffer:true}
+    );
     gl.enable(gl.BLEND);
-    const vs = await fetch('vs.glsl').then(res => res.text());
-    const fs = await fetch('fs.glsl').then(res => res.text());
+    const vs = await fetch('sunvs.glsl').then(res => res.text());
+    const fs = await fetch('sunfs.glsl').then(res => res.text());
     window.program = compile(vs, fs);
+
+    gl.enable(gl.DEPTH_TEST);
+
+    window.octahedron = setupGeometry(octahedron_data);
+    window.tetrahedron = setupGeometry(tetrahedron_data);
  
     fillScreen();
     window.addEventListener('resize', fillScreen);

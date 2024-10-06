@@ -1,9 +1,8 @@
 #version 300 es
-layout(location=0) in vec4 position;
-layout(location=1) in vec4 color;
-out vec4 color2;
-uniform mat4 sunmatrix;
+precision highp float;
+uniform vec4 color;
+out vec4 fragColor;
+in vec4 color2;
 void main() {
-    gl_Position = sun_matrix * position;
-    color2 = color;
+    fragColor = color2;
 }
