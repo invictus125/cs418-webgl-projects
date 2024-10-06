@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="data:,">
+    <title>Logo MP</title>
+    <script src="wrapWebGL2.js"></script>
+    <script src="standardCode.js"></script>
+    <script src="math.js"></script>
+    <script>
+
+// iw = inner width, ow = outer width, ih = inner height, oh = outer height
+var iw = 0.35;
+var ow = 0.7;
+var ih = 0.45;
+var oh = 1;
+// model data for logo
+var logo_data = {
+    triangles: [
+        // Top rectangle
+        [0,1,2],
+        [0,2,11],
+        // Middle rectangle
+        [10,3,4],
+        [10,9,4],
+        // Bottom rectangle
+        [8,6,7],
+        [8,5,6]
+    ],
+    attributes: [
+        // Position
+        [
+            // 0 - Top left
+            [-ow,-oh,0],
+            // 1 - Top right
+            [ow,-oh,0],
+            // 2 - Right outer top
+            [ow,-ih,0],
+            // 3 - Right inner top
+            [iw,-ih,0],
+            // 4 - Right inner bottom
+            [iw,ih,0],
+            // 5 - Right outer bottom
+            [ow,ih,0],
+            // 6 - Bottom right
+            [ow,oh,0],
+            // 7 - Bottom left
+            [-ow,oh,0],
+            // 8 - Left outer bottom
+            [-ow,ih,0],
+            // 9 - Left inner bottom
+            [-iw,ih,0],
+            // 10 - Left inner top
+            [-iw,-ih,0],
+            // 11 - Left outer top
+            [-ow,-ih,0]
+        ],
+        // Colors (uniform)
+        [
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02]
+        ]
+    ]
+};
+
+/**
+ * Fetches, reads, and compiles GLSL; begins animation
+ */
+async function setup() {
+    window.gl = document.querySelector('canvas').getContext('webgl2');
+    gl.enable(gl.BLEND);
+    const vs = await fetch('vs.glsl').then(res => res.text());
+    const fs = await fetch('fs.glsl').then(res => res.text());
+    window.program = compileShader(vs,fs);
+
+    window.logo = setupGeometry(logo_data);
+ 
+    fillScreen();
+    window.addEventListener('resize', fillScreen);
+
+    requestAnimationFrame(tick);
+}
+
+
+/**
+ * Runs the animation using requestAnimationFrame. This is like a loop that
+ * runs once per screen refresh, but a loop won't work because we need to let
+ * the browser do other things between ticks. Instead, we have a function that
+ * requests itself be queued to be run again as its last step.
+ * 
+ * @param {Number} milliseconds - milliseconds since web page loaded; 
+ *        automatically provided by the browser when invoked with
+ *        requestAnimationFrame
+ */
+function tick(milliseconds) {
+    const seconds = milliseconds / 1000
+    draw(seconds)
+    requestAnimationFrame(tick) // <- only call this here, nowhere else
+}
+
+
+/**
+ * Sets up view, scale, rotation, and translation matrices for the Illinois logo and creates a motion matrix from them.
+ * Draws the elements of the logo geometry after sending the motion matrix to the GPU as a uniform.
+ *
+ * @param {Number} seconds - the number of seconds since the animation began
+ */
+function draw(seconds) {
+    gl.useProgram(program);
+
+    var view = m4view([0,0,1], [0,0,0], [0,1,0]);
+    var scale = m4scale(Math.abs(0.2*Math.sin(seconds)) + 0.2, Math.abs(0.2*Math.sin(seconds)) + 0.2, 1);
+    var rotation = m4rotZ(seconds);
+    var translation = m4trans(0.5*Math.sin(seconds), 0.5*Math.sin(seconds), 0);
+    var motion = m4mul(view, translation, rotation, scale);
+
+    gl.uniformMatrix4fv(program.uniforms.motion, false, motion);
+
+    gl.drawElements(logo.mode, logo.count, logo.type, 0);
+}
+
+/**
+ * Resizes the canvas to the largest square the screen can hold
+ */
+function fillScreen() {
+    let canvas = document.querySelector('canvas');
+    document.body.style.margin = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    let size = Math.min(canvas.clientWidth, canvas.clientHeight);
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = '';
+    canvas.style.height = '';
+    if (window.gl) {
+        gl.viewport(0,0, canvas.width, canvas.height);
+    }
+}
+
+window.addEventListener('load', setup);
+
+    </script>
+</head>
+<body>
+<canvas width="300" height="300" style="background:white"></canvas>
+</body>
+</html>
