@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="icon" href="data:,">
+    <title>CPU Jitter MP</title>
+    <script src="wrapWebGL2.js"></script>
+    <script src="standardCode.js"></script>
+    <script src="math.js"></script>
+    <script>
+
+// iw = inner width, ow = outer width, ih = inner height, oh = outer height
+var iw = 0.35;
+var ow = 0.7;
+var ih = 0.45;
+var oh = 1;
+
+// model data for logo
+var logo_data = {
+    triangles: [
+        // Top rectangle
+        [0,1,2],
+        [0,2,11],
+        // Middle rectangle
+        [10,3,4],
+        [10,9,4],
+        // Bottom rectangle
+        [8,6,7],
+        [8,5,6],
+        // Connections of middle to top
+        [0,10,3],
+        [1,10,3],
+        // Connections of middle to bottom
+        [4,9,6],
+        [4,9,7],
+    ],
+    attributes: [
+        // Position
+        [
+            // 0 - Top left
+            [-ow,-oh,0],
+            // 1 - Top right
+            [ow,-oh,0],
+            // 2 - Right outer top
+            [ow,-ih,0],
+            // 3 - Right inner top
+            [iw,-ih,0],
+            // 4 - Right inner bottom
+            [iw,ih,0],
+            // 5 - Right outer bottom
+            [ow,ih,0],
+            // 6 - Bottom right
+            [ow,oh,0],
+            // 7 - Bottom left
+            [-ow,oh,0],
+            // 8 - Left outer bottom
+            [-ow,ih,0],
+            // 9 - Left inner bottom
+            [-iw,ih,0],
+            // 10 - Left inner top
+            [-iw,-ih,0],
+            // 11 - Left outer top
+            [-ow,-ih,0],
+        ],
+        // Colors (uniform)
+        [
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02],
+            [1.0,0.373,0.02]
+        ]
+    ]
+};
+
+/**
+ * Creates a Vertex Array Object and puts into it all of the data in the given
+ * JSON structure, which should have the following form:
+ * 
+ * ````
+ * {"triangles": a list of of indices of vertices
+ * ,"attributes":
+ *  [ a list of 1-, 2-, 3-, or 4-vectors, one per vertex to go in location 0
+ *  , a list of 1-, 2-, 3-, or 4-vectors, one per vertex to go in location 1
+ *  , ...
+ *  ]
+ * }
+ * ````
+ * This modded version of the function uses DYNAMIC_DRAW instead of STATIC_DRAW
+ * 
+ * @returns an object with four keys:
+ *  - mode = the 1st argument for gl.drawElements
+ *  - count = the 2nd argument for gl.drawElements
+ *  - type = the 3rd argument for gl.drawElements
+ *  - vao = the vertex array object for use with gl.bindVertexArray
+ */
+ function moddedSetupGeometry(geom) {
+    var triangleArray = gl.createVertexArray()
+    gl.bindVertexArray(triangleArray)
+
+    // Create a re-usable position buffer
+    window.positionBuffer = gl.createBuffer();
+    window.positionData = geom.attributes[0].flat();
+    gl.bindBuffer(gl.ARRAY_BUFFER, window.positionBuffer);
+    const f32 = new Float32Array(window.positionData);
+    gl.bufferData(gl.ARRAY_BUFFER, f32, gl.DYNAMIC_DRAW);
+    gl.vertexAttribPointer(0, geom.attributes[0][0].length, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(0);
+
+    for(let i=1; i<geom.attributes.length; i+=1) {
+        let data = geom.attributes[i]
+        supplyDataBuffer(data, i, gl.STATIC_DRAW)
+    }
+
+    var indices = new Uint16Array(geom.triangles.flat())
+    var indexBuffer = gl.createBuffer()
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW)
+
+    return {
+        mode: gl.TRIANGLES,
+        count: indices.length,
+        type: gl.UNSIGNED_SHORT,
+        vao: triangleArray
+    }
+}
+
+/**
+ * Fetches, reads, and compiles GLSL; begins animation
+ */
+async function setup() {
+    window.gl = document.querySelector('canvas').getContext('webgl2');
+    gl.enable(gl.BLEND);
+    const vs = await fetch('vs.glsl').then(res => res.text());
+    const fs = await fetch('fs.glsl').then(res => res.text());
+    window.program = compileShader(vs,fs);
+
+    window.logo = moddedSetupGeometry(logo_data);
+ 
+    fillScreen();
+    window.addEventListener('resize', fillScreen);
+
+    requestAnimationFrame(tick);
+}
+
+
+/**
+ * Runs the animation using requestAnimationFrame. This is like a loop that
+ * runs once per screen refresh, but a loop won't work because we need to let
+ * the browser do other things between ticks. Instead, we have a function that
+ * requests itself be queued to be run again as its last step.
+ * 
+ * @param {Number} milliseconds - milliseconds since web page loaded; 
+ *        automatically provided by the browser when invoked with
+ *        requestAnimationFrame
+ */
+function tick(milliseconds) {
+    const seconds = milliseconds / 1000
+    draw(seconds)
+    requestAnimationFrame(tick) // <- only call this here, nowhere else
+}
+
+
+/**
+ * Sets up view, scale, rotation, and translation matrices for the Illinois logo and creates a motion matrix from them.
+ * Draws the elements of the logo geometry after sending the motion matrix to the GPU as a uniform.
+ *
+ * @param {Number} seconds - the number of seconds since the animation began
+ */
+function draw(seconds) {
+    gl.useProgram(program);
+
+    var view = m4view([0,0,1], [0,0,0], [0,1,0]);
+    var scale = m4scale(0.5, 0.5, 1);
+    var scaleview = m4mul(view, scale);
+
+    gl.uniformMatrix4fv(program.uniforms.scaleview, false, scaleview);
+    
+    // update the position buffer with small random numbers
+    var zCount = 0;
+    for (var i=0; i < window.positionData.length; i++) {
+        if (zCount != 2) {
+            var rand = Math.random() + (-1.0 * Math.random());
+            rand = rand == 0.0 ? 0.1 : rand;
+            window.positionData[i] += rand * 0.01;
+            zCount += 1;
+        } else {
+            zCount = 0;
+        }
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, window.positionBuffer);
+    const f32 = new Float32Array(window.positionData);
+    gl.bufferData(gl.ARRAY_BUFFER, f32, gl.DYNAMIC_DRAW);
+
+    gl.drawElements(logo.mode, logo.count, logo.type, 0);
+}
+
+/**
+ * Resizes the canvas to the largest square the screen can hold
+ */
+function fillScreen() {
+    let canvas = document.querySelector('canvas');
+    document.body.style.margin = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    let size = Math.min(canvas.clientWidth, canvas.clientHeight);
+    canvas.width = size;
+    canvas.height = size;
+    canvas.style.width = '';
+    canvas.style.height = '';
+    if (window.gl) {
+        gl.viewport(0,0, canvas.width, canvas.height);
+    }
+}
+
+window.addEventListener('load', setup);
+
+    </script>
+</head>
+<body>
+<canvas width="300" height="300" style="background:white"></canvas>
+</body>
+</html>
