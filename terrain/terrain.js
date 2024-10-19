@@ -1,79 +1,17 @@
 /**
- * Set up entity description data to be projected into the scene.
- */
-// var tetrahedron_data = {
-//     triangles: [
-//         [0,1,2],
-//         [0,2,3],
-//         [0,3,1],
-//         [1,2,3]
-//     ],
-//     attributes: [
-//         // Position
-//         [
-//             [1,1,1],
-//             [-1,-1,1],
-//             [-1,1,-1],
-//             [1,-1,-1]
-//         ],
-//         // Colors
-//         [
-//             [1,1,1],
-//             [0,0,1],
-//             [0,1,0],
-//             [1,0,0]
-//         ]
-//     ]
-// };
-
-// var octahedron_data = {
-//     triangles: [
-//         [0,1,2],
-//         [0,2,3],
-//         [0,3,4],
-//         [0,4,1],
-//         [5,1,4],
-//         [5,4,3],
-//         [5,3,2],
-//         [5,2,1]
-//     ],
-//     attributes: [
-//         // Position
-//         [
-//             [1,0,0],
-//             [0,1,0],
-//             [0,0,1],
-//             [0,-1,0],
-//             [0,0,-1],
-//             [-1,0,0]
-//         ],
-//         // Colors
-//         [
-//             [1,0.5,0.5],
-//             [0.5,1,0.5],
-//             [0.5,0.5,1],
-//             [0.5,0,0.5],
-//             [0.5,0.5,0],
-//             [0,0.5,0.5]
-//         ]
-//     ]
-// };
-
-/**
  * Takes a geometry with vertices defined in the first attribute array and defines triangles to cover the entire plane.
  *
  * @param {object} geometry The geometry which contains triangles and attributes
  * @returns The geometry with triangles added
  */
 function tesselate(geometry) {
-    console.log('tesselate called');
     var vertices = geometry.attributes[0].length;
     var n = Math.sqrt(vertices);
-    var verticesWithoutLastRow = vertices - n;
+    var verticesWithoutLastRow = vertices - n - 1;
     var nZeroIndex = n - 1;
     for (var i = 0; i < verticesWithoutLastRow; i++) {
         // Check to see if we're at the end of a row in the grid
-        if (i % nZeroIndex !== 0) {
+        if (i == 0 || i % nZeroIndex !== 0) {
             geometry.triangles.push([i, i+1, i+n]);
             geometry.triangles.push([i+1, i+n, i+n+1]);
         }
@@ -91,16 +29,19 @@ function tesselate(geometry) {
  * @returns The model updated to include faults
  */
 function createFaults(geometry, faults) {
-    console.log('createFaults called');
     var vertices = geometry.attributes[0].length;
     var n = Math.sqrt(vertices);
 
     // For now just add an even value to each row's Y-value for testing
     var stepLevel = -1.0;
     var stepSize = 2.0 / n;
+    var flipper = false;
     for (var i = 0; i < vertices; i++) {
         if (i % n == 0) {
-            stepLevel += stepSize;
+            if (flipper) {
+                stepLevel += stepSize;
+            }
+            flipper = !flipper;
         }
         geometry.attributes[0][i][1] = stepLevel;
     }
@@ -135,39 +76,64 @@ function createFaults(geometry, faults) {
  *
  * @returns The geometry object with a new attribute array for normals added
  */
-function addNormalsAttribute(geometry) {
-    console.log('addNormalsAttribute called');
-    geometry.attributes.push([]);
-    var normIdx = geometry.attributes.length - 1;
-    var vertices = geometry.attributes[0].length;
-    var rowLength = Math.sqrt(vertices);
-    var zeroIndexRowLength = rowLength - 1;
+function addNormalsAttribute(geom) {
+    // geometry.attributes.push([]);
+    // var normIdx = geometry.attributes.length - 1;
+    // var vertices = geometry.attributes[0].length;
+    // var rowLength = Math.sqrt(vertices);
+    // var zeroIndexRowLength = rowLength - 1;
 
-    for (var i = 0; i < vertices; i++) {
-        // Set vertices to use for normal computation based on whether or not this one is on a border.
-        var n = geometry.attributes[0][i];
-        var s = geometry.attributes[0][i];
-        var e = geometry.attributes[0][i];
-        var w = geometry.attributes[0][i];
-        if (i >= rowLength) {
-            n = geometry.attributes[0][i - rowLength];
-        }
-        if (i < vertices - rowLength) {
-            s = geometry.attributes[0][i + rowLength];
-        }
-        if (i % zeroIndexRowLength !== 0) {
-            e = geometry.attributes[0][i + 1];
-        }
-        if (i % rowLength !== 0) {
-            w = geometry.attributes[0][i - 1];
-        }
+    // for (var i = 0; i < vertices; i++) {
+    //     // Set vertices to use for normal computation based on whether or not this one is on a border.
+    //     var n = geometry.attributes[0][i];
+    //     var s = geometry.attributes[0][i];
+    //     var e = geometry.attributes[0][i];
+    //     var w = geometry.attributes[0][i];
+    //     if (i >= rowLength) {
+    //         n = geometry.attributes[0][i - rowLength];
+    //     }
+    //     if (i < vertices - rowLength) {
+    //         s = geometry.attributes[0][i + rowLength];
+    //     }
+    //     if (i % zeroIndexRowLength !== 0) {
+    //         e = geometry.attributes[0][i + 1];
+    //     }
+    //     if (i % rowLength !== 0) {
+    //         w = geometry.attributes[0][i - 1];
+    //     }
 
-        // The normal for a vertex is (n - s) x (w - e) in a square grid
-        var normal = cross(sub(n, s), sub(w, e));
-        geometry.attributes[normIdx].push(normal);
+    //     // The normal for a vertex is (n - s) x (w - e) in a square grid
+    //     var normal = cross(sub(n, s), sub(w, e));
+    //     geometry.attributes[normIdx].push(normal);
+    // }
+
+    // return geometry;
+
+    let ni = geom.attributes.length
+    geom.attributes.push([])
+    for(let i = 0; i < geom.attributes[0].length; i+=1) {
+        geom.attributes[ni].push([0,0,0])
+    }
+    for(let i = 0; i < geom.triangles.length; i+=1) {
+        try {
+        let p0 = geom.attributes[0][geom.triangles[i][0]]
+        let p1 = geom.attributes[0][geom.triangles[i][1]]
+        let p2 = geom.attributes[0][geom.triangles[i][2]]
+        let e1 = sub(p1,p0)
+        let e2 = sub(p2,p0)
+        let n = cross(e1,e2)
+        geom.attributes[ni][geom.triangles[i][0]] = add(geom.attributes[ni][geom.triangles[i][0]], n)
+        geom.attributes[ni][geom.triangles[i][1]] = add(geom.attributes[ni][geom.triangles[i][1]], n)
+        geom.attributes[ni][geom.triangles[i][2]] = add(geom.attributes[ni][geom.triangles[i][2]], n)
+        } catch(e) {
+            console.log(`err on ${i}`)
+        }
+    }
+    for(let i = 0; i < geom.attributes[0].length; i+=1) {
+        geom.attributes[ni][i] = normalize(geom.attributes[ni][i])
     }
 
-    return geometry;
+    return geom;
 }
 
 /**
@@ -203,23 +169,14 @@ function generateGridGeom(gridsize, faults) {
         xCoord = -1.0;
     }
 
-    console.log(`before tesselate:`);
-    console.log(JSON.parse(JSON.stringify(gridGeom)));
-
     // Connect the vertices with triangles
     gridGeom = tesselate(gridGeom);
-
-    console.log(JSON.parse(JSON.stringify(gridGeom)));
     
     // Adjust heights to match the required number of faults
     gridGeom = createFaults(gridGeom, faults);
 
-    console.log(JSON.parse(JSON.stringify(gridGeom)));
-
     // Compute the normals
     gridGeom = addNormalsAttribute(gridGeom);
-
-    console.log(JSON.parse(JSON.stringify(gridGeom)));
 
     return setupGeometry(gridGeom);
 }
@@ -327,22 +284,25 @@ function processMatrices(seconds) {
  * @param {Number} seconds - the number of seconds since the animation began
  */
 function draw(seconds) {
-    if (!window.gridGeom || window.renderedOnce) {
+    if (!window.gridGeom) {
         return;
     }
-    window.renderedOnce = true;
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program);
     
-    var view = m4view([1,1.2,8], [0,0,0], [0,1,0]);
+    // Set up view and rotation
+    var view = m4view([1,1.2,3], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
     var modelRot = m4rotY(seconds / 2.0);
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
-    
-    console.log(window.gridGeom);
-    gl.bindVertexArray(window.gridGeom.vao);
 
+    // Set up lights
+    gl.uniform3fv(program.uniforms.lightcolor, [1,1,1])
+    gl.uniform3fv(program.uniforms.lightdir, normalize([1,1,1]))
+    
+    // Draw
+    gl.bindVertexArray(window.gridGeom.vao);
     gl.drawElements(window.gridGeom.mode, window.gridGeom.count, window.gridGeom.type, 0);
 }
 
