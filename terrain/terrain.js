@@ -66,6 +66,7 @@
  * @returns The geometry with triangles added
  */
 function tesselate(geometry) {
+    console.log('tesselate called');
     var vertices = geometry.attributes[0].length;
     var n = Math.sqrt(vertices);
     var verticesWithoutLastRow = vertices - n;
@@ -77,6 +78,7 @@ function tesselate(geometry) {
             geometry.triangles.push([i+1, i+n, i+n+1]);
         }
     }
+
     return geometry;
 }
 
@@ -89,6 +91,7 @@ function tesselate(geometry) {
  * @returns The model updated to include faults
  */
 function createFaults(geometry, faults) {
+    console.log('createFaults called');
     var vertices = geometry.attributes[0].length;
     var n = Math.sqrt(vertices);
 
@@ -133,6 +136,7 @@ function createFaults(geometry, faults) {
  * @returns The geometry object with a new attribute array for normals added
  */
 function addNormalsAttribute(geometry) {
+    console.log('addNormalsAttribute called');
     geometry.attributes.push([]);
     var normIdx = geometry.attributes.length - 1;
     var vertices = geometry.attributes[0].length;
@@ -189,23 +193,33 @@ function generateGridGeom(gridsize, faults) {
     var stepSize = 2.0 / gridsize;
     var xCoord = -1.0;
     var zCoord = -1.0;
-    for (var x=0; x < gridsize; x++) {
-        for (var z=0; z < gridsize; z++) {
+    for (var z=0; z < gridsize; z++) {
+        for (var x=0; x < gridsize; x++) {
             gridGeom.attributes[0].push([xCoord, 0, zCoord]);
             gridGeom.attributes[1].push([0.75, 0.5, 0.25]);
             xCoord += stepSize;
-            zCoord += stepSize;
         }
+        zCoord += stepSize
+        xCoord = -1.0;
     }
+
+    console.log(`before tesselate:`);
+    console.log(JSON.parse(JSON.stringify(gridGeom)));
 
     // Connect the vertices with triangles
     gridGeom = tesselate(gridGeom);
+
+    console.log(JSON.parse(JSON.stringify(gridGeom)));
     
     // Adjust heights to match the required number of faults
     gridGeom = createFaults(gridGeom, faults);
 
+    console.log(JSON.parse(JSON.stringify(gridGeom)));
+
     // Compute the normals
     gridGeom = addNormalsAttribute(gridGeom);
+
+    console.log(JSON.parse(JSON.stringify(gridGeom)));
 
     return setupGeometry(gridGeom);
 }
@@ -313,14 +327,20 @@ function processMatrices(seconds) {
  * @param {Number} seconds - the number of seconds since the animation began
  */
 function draw(seconds) {
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-    gl.useProgram(program);
-    gl.uniform1f(program.uniforms.seconds, seconds);
-
-    if (!window.gridGeom) {
+    if (!window.gridGeom || window.renderedOnce) {
         return;
     }
+    window.renderedOnce = true;
 
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+    gl.useProgram(program);
+    
+    var view = m4view([1,1.2,8], [0,0,0], [0,1,0]);
+    gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
+    var modelRot = m4rotY(seconds / 2.0);
+    gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
+    
+    console.log(window.gridGeom);
     gl.bindVertexArray(window.gridGeom.vao);
 
     gl.drawElements(window.gridGeom.mode, window.gridGeom.count, window.gridGeom.type, 0);
