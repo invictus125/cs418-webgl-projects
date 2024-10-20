@@ -32,20 +32,45 @@ function createFaults(geometry, faults) {
     var n = Math.sqrt(vertices);
 
     // For now just add an even value to each row's Y-value for testing
-    var stepLevel = -1.0;
-    var stepSize = 2.0 / n;
-    var flipper = false;
-    for (var i = 0; i < vertices; i++) {
-        if (i % n == 0) {
-            if (flipper) {
-                stepLevel += stepSize;
-            }
-            flipper = !flipper;
-        }
-        geometry.attributes[0][i][1] = stepLevel;
-    }
+    // var stepLevel = -1.0;
+    // var stepSize = 2.0 / n;
+    // var flipper = false;
+    // for (var i = 0; i < vertices; i++) {
+    //     if (i % n == 0) {
+    //         if (flipper) {
+    //             stepLevel += stepSize;
+    //         }
+    //         flipper = !flipper;
+    //     }
+    //     geometry.attributes[0][i][1] = stepLevel;
+    // }
 
-    // TODO: Procedurally add the correct number of faults
+    // Procedurally generate faults
+    for (var f = 0; f < faults; f++) {
+        // Create a random change in height between -1 and 1.
+        var changeInHeight = Math.random();
+        if (Math.random() >= 0.5) {
+            changeInHeight = changeInHeight * -1.0;
+        }
+        
+        // Randomly pick an index, axis, and direction
+        var index = Math.floor(Math.random() * n);
+        var axis = Math.floor(Math.random() * 2); // 0 is x, 1 is z
+        // var direction = Math.floor(Math.random() * 2); // 0 is up/across, 1 is diagonal
+
+        var start;
+        var step;
+        if (axis == 0) {
+            start = index;
+            step = n;
+        } else {
+            start = index * n;
+            step = 1;
+        }
+        for (var i = start; i < vertices; i+=step) {
+            geometry.attributes[0][i][1] += changeInHeight;
+        }
+    }
 
     // Normalize the heights
     var minHeight = geometry.attributes[0][0][1];
@@ -204,75 +229,6 @@ function tick(milliseconds) {
     const seconds = milliseconds / 1000;
     draw(seconds);
     requestAnimationFrame(tick);
-}
-
-/**
- * Creates matrices for each object and sends them into the GPU as uniforms.
- * Matrices will be based on the time elapsed in the animation.
- *
- * @param seconds The number of seconds into the animation we are
- */
-function processMatrices(seconds) {
-    var view = m4view([1,1.2,8], [0,0,0], [0,1,0]);
-    gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-
-    // Handle the animation of Sol
-    var sunRotation = m4rotY(seconds * 2.0);
-    var sunMv = m4mul(view, sunRotation);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, sunMv);
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0);
-
-    // Handle the animation of Earth
-    var earthTranslateFactor = 3;
-    var earthOrbitFactor = 1;
-    var earthRotationFactor = 5;
-    var earthRotation = m4rotY(seconds * earthRotationFactor);
-    var earthScale = m4scale(0.37, 0.37, 0.37);
-    var earthTrans = m4trans(earthTranslateFactor, 0, 0);
-    var earthOrbitSun = m4rotY(seconds * earthOrbitFactor);
-    var earthM = m4mul(earthOrbitSun, earthTrans, earthRotation, earthScale);
-    var earthMv = m4mul(view, earthM);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, earthMv);
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0);
-
-    // Handle the animation of Mars
-    var marsRotation = m4rotY(seconds * (earthRotationFactor / 2.2));
-    var marsScale = m4scale(0.2, 0.2, 0.2);
-    var marsTrans = m4trans(earthTranslateFactor * 1.6, 0, 0);
-    var marsOrbitSun = m4rotY(seconds / (earthOrbitFactor * 1.9));
-    var marsM = m4mul(marsOrbitSun, marsTrans, marsRotation, marsScale);
-    var marsMv = m4mul(view, marsM);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, marsMv);
-    gl.drawElements(octahedron.mode, octahedron.count, octahedron.type, 0);
-
-    // Handle the animation of Luna
-    var lunaScale = m4scale(0.3, 0.3, 0.3);
-    var lunaRot = m4mul(m4rotZ(20), m4rotY(30), m4rotX(40))
-    var lunaTrans = m4trans(2, 0, 0);
-    var orbitEarth = m4rotY(seconds / 1.5);
-    // var lunaMv = m4mul(view, earthM, orbitEarth, lunaTrans, lunaRot, lunaScale);
-    var lunaMv = m4mul(view, earthOrbitSun, earthTrans, earthScale, orbitEarth, lunaTrans, lunaRot, lunaScale);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, lunaMv);
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0);
-
-    // Handle the animation of Phobos
-    var phobosOrbitFactor = 0.1;
-    var phobosScale = m4scale(0.4, 0.4, 0.4);
-    var phobosRot = m4mul(m4rotZ(50), m4rotY(20), m4rotX(45))
-    var phobosTrans = m4trans(2, 0, 0);
-    var orbitMars = m4rotY(seconds / phobosOrbitFactor);
-    var phobosMv = m4mul(view, marsM, orbitMars, phobosTrans, phobosRot, phobosScale);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, phobosMv);
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0);
-    
-    // Handle the animation of Deimos
-    var deimosOrbitFactor = 0.9;
-    var deimosScale = m4scale(0.2, 0.2, 0.2);
-    var deimosTrans = m4trans(4, 0, 0);
-    var orbitMars = m4rotY(seconds / deimosOrbitFactor);
-    var deimosMv = m4mul(view, marsM, orbitMars, deimosTrans, deimosScale);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, deimosMv);
-    gl.drawElements(tetrahedron.mode, tetrahedron.count, tetrahedron.type, 0);
 }
 
 /**
