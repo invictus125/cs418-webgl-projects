@@ -29,59 +29,25 @@ function tesselate(geometry) {
  */
 function createFaults(geometry, faults) {
     var vertices = geometry.attributes[0].length;
-    var n = Math.sqrt(vertices);
 
-    // For now just add an even value to each row's Y-value for testing
-    // var stepLevel = -1.0;
-    // var stepSize = 2.0 / n;
-    // var flipper = false;
-    // for (var i = 0; i < vertices; i++) {
-    //     if (i % n == 0) {
-    //         if (flipper) {
-    //             stepLevel += stepSize;
-    //         }
-    //         flipper = !flipper;
-    //     }
-    //     geometry.attributes[0][i][1] = stepLevel;
-    // }
-
-    // Procedurally generate faults
     for (var f = 0; f < faults; f++) {
-        // Create a random change in height between -1 and 1.
+        // Create a random change in height.
         var changeInHeight = Math.random();
-        if (Math.random() >= 0.5) {
-            changeInHeight = changeInHeight * -1.0;
-        }
 
-        // Select two vertices to draw the dividing plane between
-        var vertex1 = 0;
-        var vertex2 = 0;
-        while (vertex1 == vertex2) {
-            var vertex1 = Math.floor(Math.random() * vertices);
-            var vertex2 = Math.floor(Math.random() * vertices);
-        }
-        var v1x = vertex1 % n;
-        var v1z = Math.floor(vertex1 / n);
-        var v2x = vertex2 % n;
-        var v2z = Math.floor(vertex2 / n);
-        // point-slope formula: z - z1 = m*(x - x1)
-        var slope = (v1z - v2z) / (v1x - v2x);
-        
-        var aboveBelow = Math.random() > 0.5;
+        // Select a vertex to build the plane from
+        var vertex = geometry.attributes[0][Math.floor(Math.random() * vertices)];
 
-        for (var x = 0; x < n; x++) {
-            // Find z for this x and see if it's in the grid.
-            var rawZ = slope * (x - v1x) + v1z;
-            var z = Math.floor(rawZ);
-            if (z >= 0 && z < n) {
-                // Make sure the fault extends along the whole model
-                var step = aboveBelow ? 1 : -1;
-                var row = z;
-                while (row >= 0 && row < n) {
-                    var curVertex = (row * n) + x;
-                    geometry.attributes[0][curVertex][1] += changeInHeight;
-                    row = row + step;
-                }
+        // Create a random normal on the x-z plane to describe the vertical plane
+        var nz = Math.random() - Math.random();
+        var nx = Math.random() - Math.random();
+        var normal = [nx, 0, nz];
+
+        for (var v = 0; v < geometry.attributes[0].length; v++) {
+            var vec = sub(geometry.attributes[0][v], vertex);
+            if (dot(vec, normal) > 0) {
+                geometry.attributes[0][v][1] += changeInHeight;
+            } else {
+                geometry.attributes[0][v][1] -= changeInHeight;
             }
         }
     }
