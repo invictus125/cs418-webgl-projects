@@ -232,8 +232,11 @@ function draw(seconds) {
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
 
     // Set up lights
-    gl.uniform3fv(program.uniforms.lightcolor, [1,1,1])
-    gl.uniform3fv(program.uniforms.lightdir, normalize([1,1,1]))
+    var ld = normalize([1,1,1]);
+    gl.uniform3fv(program.uniforms.lightcolor, [1,1,1]);
+    gl.uniform3fv(program.uniforms.lightdir, ld);
+    var h = normalize(add(ld, [0,0,1]));
+    gl.uniform3fv(program.uniforms.halfway, h);
     
     // Draw
     gl.bindVertexArray(window.gridGeom.vao);
