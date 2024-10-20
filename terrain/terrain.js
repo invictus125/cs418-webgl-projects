@@ -8,10 +8,9 @@ function tesselate(geometry) {
     var vertices = geometry.attributes[0].length;
     var n = Math.sqrt(vertices);
     var verticesWithoutLastRow = vertices - n - 1;
-    var nZeroIndex = n - 1;
     for (var i = 0; i < verticesWithoutLastRow; i++) {
         // Check to see if we're at the end of a row in the grid
-        if (i == 0 || i % nZeroIndex !== 0) {
+        if (i == 0 || ((i+1) % n) !== 0) {
             geometry.triangles.push([i, i+1, i+n]);
             geometry.triangles.push([i+1, i+n, i+n+1]);
         }
@@ -109,28 +108,24 @@ function addNormalsAttribute(geom) {
 
     // return geometry;
 
-    let ni = geom.attributes.length
-    geom.attributes.push([])
+    let ni = geom.attributes.length;
+    geom.attributes.push([]);
     for(let i = 0; i < geom.attributes[0].length; i+=1) {
-        geom.attributes[ni].push([0,0,0])
+        geom.attributes[ni].push([0,0,0]);
     }
     for(let i = 0; i < geom.triangles.length; i+=1) {
-        try {
-        let p0 = geom.attributes[0][geom.triangles[i][0]]
-        let p1 = geom.attributes[0][geom.triangles[i][1]]
-        let p2 = geom.attributes[0][geom.triangles[i][2]]
-        let e1 = sub(p1,p0)
-        let e2 = sub(p2,p0)
-        let n = cross(e1,e2)
-        geom.attributes[ni][geom.triangles[i][0]] = add(geom.attributes[ni][geom.triangles[i][0]], n)
-        geom.attributes[ni][geom.triangles[i][1]] = add(geom.attributes[ni][geom.triangles[i][1]], n)
-        geom.attributes[ni][geom.triangles[i][2]] = add(geom.attributes[ni][geom.triangles[i][2]], n)
-        } catch(e) {
-            console.log(`err on ${i}`)
-        }
+        let p0 = geom.attributes[0][geom.triangles[i][0]];
+        let p1 = geom.attributes[0][geom.triangles[i][1]];
+        let p2 = geom.attributes[0][geom.triangles[i][2]];
+        let e1 = sub(p1,p0);
+        let e2 = sub(p2,p0);
+        let n = cross(e1,e2);
+        geom.attributes[ni][geom.triangles[i][0]] = add(geom.attributes[ni][geom.triangles[i][0]], n);
+        geom.attributes[ni][geom.triangles[i][1]] = add(geom.attributes[ni][geom.triangles[i][1]], n);
+        geom.attributes[ni][geom.triangles[i][2]] = add(geom.attributes[ni][geom.triangles[i][2]], n);
     }
     for(let i = 0; i < geom.attributes[0].length; i+=1) {
-        geom.attributes[ni][i] = normalize(geom.attributes[ni][i])
+        geom.attributes[ni][i] = normalize(geom.attributes[ni][i]);
     }
 
     return geom;
@@ -177,6 +172,8 @@ function generateGridGeom(gridsize, faults) {
 
     // Compute the normals
     gridGeom = addNormalsAttribute(gridGeom);
+
+    console.log(gridGeom);
 
     return setupGeometry(gridGeom);
 }

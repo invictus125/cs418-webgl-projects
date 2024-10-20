@@ -6,8 +6,11 @@ out vec3 vtxnormal;
 uniform mat4 mv;
 uniform mat4 perspective;
 out vec4 color2;
+out vec3 cnormal;
 void main() {
+    // gl_Position = perspective * mv * vec4(position.xyz + normal.xyz * 0.3, position.w);
     gl_Position = perspective * mv * position;
     vtxnormal = mat3(mv) * normal;
     color2 = vec4(color.rgb, 1);
+    cnormal = normal;
 }
