@@ -52,23 +52,37 @@ function createFaults(geometry, faults) {
         if (Math.random() >= 0.5) {
             changeInHeight = changeInHeight * -1.0;
         }
-        
-        // Randomly pick an index, axis, and direction
-        var index = Math.floor(Math.random() * n);
-        var axis = Math.floor(Math.random() * 2); // 0 is x, 1 is z
-        // var direction = Math.floor(Math.random() * 2); // 0 is up/across, 1 is diagonal
 
-        var start;
-        var step;
-        if (axis == 0) {
-            start = index;
-            step = n;
-        } else {
-            start = index * n;
-            step = 1;
+        // Select two vertices to draw a line between
+        var vertex1 = 0;
+        var vertex2 = 0;
+        while (vertex1 == vertex2) {
+            var vertex1 = Math.floor(Math.random() * vertices);
+            var vertex2 = Math.floor(Math.random() * vertices);
         }
-        for (var i = start; i < vertices; i+=step) {
-            geometry.attributes[0][i][1] += changeInHeight;
+        var v1x = vertex1 % n;
+        var v1z = Math.floor(vertex1 / n);
+        var v2x = vertex2 % n;
+        var v2z = Math.floor(vertex2 / n);
+        // point-slope formula: z - z1 = m*(x - x1)
+        var slope = (v1z - v2z) / (v1x - v2x);
+        
+        var aboveBelow = Math.random() > 0.5;
+
+        for (var x = 0; x < n; x++) {
+            // Find z for this x and see if it's in the grid.
+            var rawZ = slope * (x - v1x) + v1z;
+            var z = Math.floor(rawZ);
+            if (z >= 0 && z < n) {
+                // Make sure the fault extends along the whole model
+                var step = aboveBelow ? 1 : -1;
+                var row = z;
+                while (row >= 0 && row < n) {
+                    var curVertex = (row * n) + x;
+                    geometry.attributes[0][curVertex][1] += changeInHeight;
+                    row = row + step;
+                }
+            }
         }
     }
 
