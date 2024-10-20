@@ -53,7 +53,7 @@ function createFaults(geometry, faults) {
             changeInHeight = changeInHeight * -1.0;
         }
 
-        // Select two vertices to draw a line between
+        // Select two vertices to draw the dividing plane between
         var vertex1 = 0;
         var vertex2 = 0;
         while (vertex1 == vertex2) {
@@ -240,7 +240,7 @@ function draw(seconds) {
     gl.useProgram(program);
     
     // Set up view and rotation
-    var view = m4view([1,1.2,3], [0,0,0], [0,1,0]);
+    var view = m4view([1,1.2,1.5], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
     var modelRot = m4rotY(seconds / 2.0);
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
