@@ -100,60 +100,41 @@ function createFaults(geometry, faults) {
  *
  * @returns The geometry object with a new attribute array for normals added
  */
-function addNormalsAttribute(geom) {
-    // geometry.attributes.push([]);
-    // var normIdx = geometry.attributes.length - 1;
-    // var vertices = geometry.attributes[0].length;
-    // var rowLength = Math.sqrt(vertices);
-    // var zeroIndexRowLength = rowLength - 1;
+function addNormalsAttribute(geometry) {
+    geometry.attributes.push([]);
+    var normIdx = geometry.attributes.length - 1;
+    var vertices = geometry.attributes[0].length;
+    var rowLength = Math.sqrt(vertices);
 
-    // for (var i = 0; i < vertices; i++) {
-    //     // Set vertices to use for normal computation based on whether or not this one is on a border.
-    //     var n = geometry.attributes[0][i];
-    //     var s = geometry.attributes[0][i];
-    //     var e = geometry.attributes[0][i];
-    //     var w = geometry.attributes[0][i];
-    //     if (i >= rowLength) {
-    //         n = geometry.attributes[0][i - rowLength];
-    //     }
-    //     if (i < vertices - rowLength) {
-    //         s = geometry.attributes[0][i + rowLength];
-    //     }
-    //     if (i % zeroIndexRowLength !== 0) {
-    //         e = geometry.attributes[0][i + 1];
-    //     }
-    //     if (i % rowLength !== 0) {
-    //         w = geometry.attributes[0][i - 1];
-    //     }
+    for (var i = 0; i < vertices; i++) {
+        // Set vertices to use for normal computation based on whether or not this one is on a border.
+        var n = geometry.attributes[0][i];
+        var s = geometry.attributes[0][i];
+        var e = geometry.attributes[0][i];
+        var w = geometry.attributes[0][i];
+        if (i >= rowLength) {
+            s = geometry.attributes[0][i - rowLength];
+        }
+        if (i < vertices - rowLength) {
+            n = geometry.attributes[0][i + rowLength];
+        }
+        if (i > 0 && i % rowLength !== 0) {
+            // Not beginning of a row
+            w = geometry.attributes[0][i - 1];
+        }
+        if ((i + 1) % rowLength !== 0) {
+            e = geometry.attributes[0][i + 1];
+        }
 
-    //     // The normal for a vertex is (n - s) x (w - e) in a square grid
-    //     var normal = cross(sub(n, s), sub(w, e));
-    //     geometry.attributes[normIdx].push(normal);
-    // }
-
-    // return geometry;
-
-    let ni = geom.attributes.length;
-    geom.attributes.push([]);
-    for(let i = 0; i < geom.attributes[0].length; i+=1) {
-        geom.attributes[ni].push([0,0,0]);
+        // The normal for a vertex is (n - s) x (w - e) in a square grid
+        var normal = cross(sub(w, e), sub(n, s));
+        geometry.attributes[normIdx].push(normal);
     }
-    for(let i = 0; i < geom.triangles.length; i+=1) {
-        let p0 = geom.attributes[0][geom.triangles[i][0]];
-        let p1 = geom.attributes[0][geom.triangles[i][1]];
-        let p2 = geom.attributes[0][geom.triangles[i][2]];
-        let e1 = sub(p1,p0);
-        let e2 = sub(p2,p0);
-        let n = cross(e1,e2);
-        geom.attributes[ni][geom.triangles[i][0]] = add(geom.attributes[ni][geom.triangles[i][0]], n);
-        geom.attributes[ni][geom.triangles[i][1]] = add(geom.attributes[ni][geom.triangles[i][1]], n);
-        geom.attributes[ni][geom.triangles[i][2]] = add(geom.attributes[ni][geom.triangles[i][2]], n);
-    }
-    for(let i = 0; i < geom.attributes[0].length; i+=1) {
-        geom.attributes[ni][i] = normalize(geom.attributes[ni][i]);
+    for(let i = 0; i < geometry.attributes[0].length; i+=1) {
+        geometry.attributes[normIdx][i] = normalize(geometry.attributes[normIdx][i]);
     }
 
-    return geom;
+    return geometry;
 }
 
 /**
