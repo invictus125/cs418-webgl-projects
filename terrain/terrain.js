@@ -28,6 +28,10 @@ function tesselate(geometry) {
  * @returns The model updated to include faults
  */
 function createFaults(geometry, faults) {
+    if (!faults) {
+        return geometry;
+    }
+
     var vertices = geometry.attributes[0].length;
 
     for (var f = 0; f < faults; f++) {
