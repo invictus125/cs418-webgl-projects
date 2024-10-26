@@ -201,12 +201,41 @@ function tick(milliseconds) {
  * Stores results in window.cameraPosition and window.cameraRotation variables.
  */
 function changeViewsForKeyPresses() {
+    var dx = 0;
+    var dy = 0;
+    var dz = 0;
+    var drx = 0;
+    var dry = 0;
+    var drz = 0;
     if (window.keysPressed.w) {
-        window.cameraPosition[2] -= 0.01;
+        dz = 0.01;
     }
     if (window.keysPressed.s) {
-        window.cameraPosition[2] += 0.01;
+        dz = -0.01;
     }
+    if (window.keysPressed.a) {
+        dx = 0.01;
+    }
+    if (window.keysPressed.d) {
+        dx = -0.01;
+    }
+    if (window.keysPressed.ArrowUp) {
+        drx = -0.01;
+    }
+    if (window.keysPressed.ArrowLeft) {
+        dry = -0.01;
+    }
+    if (window.keysPressed.ArrowDown) {
+        drx = 0.01
+    }
+    if (window.keysPressed.ArrowRight) {
+        dry = 0.01;
+    }
+    
+    var deltaRot = m4mul(m4rotX(drx), m4rotY(dry), m4rotZ(drz));
+    var deltaTrans = m4trans(dx, dy, dz);
+
+    window.viewMatrix = m4mul(deltaRot, deltaTrans, window.viewMatrix);
 }
 
 /**
@@ -225,9 +254,8 @@ function draw() {
     gl.useProgram(program);
     
     // Set up view and rotation
-    var view = m4view(window.cameraPosition, [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-    gl.uniformMatrix4fv(program.uniforms.mv, false, view);
+    gl.uniformMatrix4fv(program.uniforms.mv, false, window.viewMatrix);
 
     // Set up lights
     var ld = normalize([1,1,1]);
@@ -343,8 +371,11 @@ function handleKeyUp(event) {
     window.addEventListener('keyup', handleKeyUp);
 
     // Set up initial view
-    window.cameraPosition = [1,1.2,1.5];
-    window.cameraRotation = [];
+    window.cameraPosition = [1, 1.2, 1.5];
+    window.cameraDirection = [0, 0, -1];
+    window.cameraTranslation = m4trans(1, 1.2, 1.5);
+    window.cameraRotation = m4mul(m4rotX(0), m4rotY(0), m4rotZ(0));
+    window.viewMatrix = m4view([1, 1.2, 1.5], [0, 0, 0], [0, 1, 0]);
 
     // Generate geometry and render first frame
     window.gridGeom = generateGridGeom(200, 50);
