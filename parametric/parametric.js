@@ -1,14 +1,13 @@
 /**
- * Generates a geometry based on input values. Geometry will be a sphere unless the torus param is true, and will have the
- * specified numbers of rings and vertical slices representing latitude and longitude.
+ * Generates a sphere geometry based on input values. Geometry will have the specified numbers of
+ * rings and vertical slices representing latitude and longitude.
  *
  * @param {int} rings The number of rings the geometry should have
  * @param {int} slices The number of vertical slices the geometry should have
- * @param {boolean} torus Whether or not the generated geometry should be a torus shape
  * 
  * @returns An object containing triangles and attributes parameters
  */
-function generateGeom(rings, slices, torus) {
+function generateSphereGeom(rings, slices) {
     var geom = {
         triangles: [],
         attributes: [
@@ -85,6 +84,96 @@ function generateGeom(rings, slices, torus) {
     // Final face
     geom.triangles.push([1, geom.attributes[0].length - slices, geom.attributes[0].length - 1]);
 
+    return geom;
+}
+
+function generateTorusGeom(rings, slices) {
+    var geom = {
+        triangles: [],
+        attributes: [
+            // Positions
+            [],
+            // Colors
+            [],
+            // Normals
+            [],
+        ],
+    };
+
+    var currentRingStartPos = 0;
+    var previousRingStartPos = -slices;
+    var torusRadius = 0.3;
+    var centerRadius = 0.7
+    for (var r = 0; r < rings; r++) {
+        // Figure out radius and y offset for this ring
+        var rAngle = r * (2 * Math.PI) / rings;
+        var radius = (torusRadius + Math.cos(rAngle) * torusRadius) + centerRadius;
+        var yPos = Math.sin(rAngle) * torusRadius;
+        
+        for (var s = 0; s < slices; s++) {
+            var angle = s * (2 * Math.PI) / slices;
+            var vertex = [Math.cos(angle) * radius, yPos, Math.sin(angle) * radius];
+            geom.attributes[0].push(vertex);
+            geom.attributes[1].push([0.75, 0.5, 0.25]);
+
+            // Calculate normal which is just a unit vector in the opposite direction of the origin from the current vertex
+            var torusCenter = [Math.cos(angle), 0, Math.sin(angle)];
+            var normal = normalize(sub(vertex, torusCenter));
+            geom.attributes[2].push(normal);
+
+            // Connection logic
+            if (s > 0) {
+                if (r > 0) {
+                    // Connect this ring to the previous ring.
+                    geom.triangles.push([previousRingStartPos + s, currentRingStartPos + s, currentRingStartPos + s - 1]);
+                    geom.triangles.push([previousRingStartPos + s, previousRingStartPos + s - 1, currentRingStartPos + s - 1]);
+
+                    if (s == (slices - 1)) {
+                        // Connect the final face
+                        geom.triangles.push([previousRingStartPos, currentRingStartPos + s, currentRingStartPos]);
+                        geom.triangles.push([previousRingStartPos, previousRingStartPos + s, currentRingStartPos + s]);
+                    }
+                }
+            }
+        }
+
+        currentRingStartPos += slices;
+        previousRingStartPos += slices;
+    }
+
+    currentRingStartPos -= slices;
+    var end = currentRingStartPos + slices;
+    var offs = 1;
+    for (var v = currentRingStartPos + 1; v < end; v++) {
+        geom.triangles.push([offs, v-1, v]);
+        geom.triangles.push([offs - 1, offs, v - 1]);
+        offs++;
+    }
+    // Final face
+    geom.triangles.push([0, geom.attributes[0].length - slices, geom.attributes[0].length - 1]);
+    geom.triangles.push([0, slices - 1, geom.attributes[0].length - 1])
+
+    return geom;
+}
+
+/**
+ * Generates a geometry based on input values. Geometry will be a sphere unless the torus param is true, and will have the
+ * specified numbers of rings and vertical slices representing latitude and longitude.
+ *
+ * @param {int} rings The number of rings the geometry should have
+ * @param {int} slices The number of vertical slices the geometry should have
+ * @param {boolean} torus Whether or not the generated geometry should be a torus shape
+ * 
+ * @returns An object containing triangles and attributes parameters
+ */
+function generateGeom(rings, slices, torus) {
+    var geom;
+    if (!torus) {
+        geom = generateSphereGeom(rings, slices);
+    } else {
+        geom = generateTorusGeom(rings, slices);
+    }
+
     console.log(geom);
 
     return setupGeometry(geom);
@@ -132,7 +221,7 @@ function draw(seconds) {
     gl.useProgram(program);
     
     // Set up view and rotation
-    var view = m4view([1,0.3,1.5], [0,0,0], [0,1,0]);
+    var view = m4view([1, window.torus ? 0.75 : 0.5 ,1.7], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
     var modelRot = m4rotY(seconds / 2.0);
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
@@ -173,6 +262,7 @@ function draw(seconds) {
         const rings = Number(document.querySelector('#rings').value) || 1;
         const slices = Number(document.querySelector('#slices').value) || 3;
         const torus = document.querySelector('#torus').checked || false;
+        window.torus = torus;
         window.geom = generateGeom(rings, slices, torus);
     });
 
