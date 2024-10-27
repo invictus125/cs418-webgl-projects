@@ -270,74 +270,6 @@ function draw() {
 }
 
 /**
- * Handles keyboard events and changes the view accordingly.
- */
-function handleKeyDown(event) {
-    switch (event.key) {
-        case 'w':
-            window.keysPressed.w = true;
-            break;
-        case 'a':
-            window.keysPressed.a = true;
-            break;
-        case 's':
-            window.keysPressed.s = true;
-            break;
-        case 'd':
-            window.keysPressed.d = true;
-            break;
-        case 'ArrowUp':
-            window.keysPressed.ArrowUp = true;
-            break;
-        case 'ArrowLeft':
-            window.keysPressed.ArrowLeft = true;
-            break;
-        case 'ArrowDown':
-            window.keysPressed.ArrowDown = true;
-            break;
-        case 'ArrowRight':
-            window.keysPressed.ArrowRight = true;
-            break;
-        default:
-            break;
-    }
-}
-
-/**
- * Handles keyboard events and changes the view accordingly.
- */
-function handleKeyUp(event) {
-    switch (event.key) {
-        case 'w':
-            window.keysPressed.w = false;
-            break;
-        case 'a':
-            window.keysPressed.a = false;
-            break;
-        case 's':
-            window.keysPressed.s = false;
-            break;
-        case 'd':
-            window.keysPressed.d = false;
-            break;
-        case 'ArrowUp':
-            window.keysPressed.ArrowUp = false;
-            break;
-        case 'ArrowLeft':
-            window.keysPressed.ArrowLeft = false;
-            break;
-        case 'ArrowDown':
-            window.keysPressed.ArrowDown = false;
-            break;
-        case 'ArrowRight':
-            window.keysPressed.ArrowRight = false;
-            break;
-        default:
-            break;
-    }
-}
-
-/**
  * Fetches, reads, and compiles GLSL; sets globals, begins animation
  */
  async function setup() {
@@ -357,18 +289,9 @@ function handleKeyUp(event) {
     window.addEventListener('resize', fillScreen);
 
     // Set up key tracking
-    window.keysPressed = {
-        w: false,
-        a: false,
-        s: false,
-        d: false,
-        ArrowUp: false,
-        ArrowLeft: false,
-        ArrowDown: false,
-        ArrowRight: false,
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
+    window.keysPressed = {};
+    window.addEventListener('keydown', (event) => { window.keysPressed[event.key] = true; });
+    window.addEventListener('keyup', (event) => { window.keysPressed[event.key] = false; });
 
     // Set up initial view
     window.cameraPosition = [1, 1.2, 1.5];
