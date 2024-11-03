@@ -123,7 +123,7 @@ function addNormalsAttribute(geometry) {
 
 /**
  * Generates and returns a grid geometry object. Puts the position and color data into buffers usable by WebGL2.
- * The color will default to (0.50, 0.50, 0.50, 1).
+ * Texture coordinates will be in the second attributes position, corresponding to the grid position of the vertex.
  * The grid will be in the X-Z plane, and positive Y will be "up" w.r.t. the model.
  *
  * @param {int} gridsize The number of vertices on each side of the grid. Generated grid will have dimension gridsize x gridsize
@@ -137,7 +137,7 @@ function generateGridGeom(gridsize, faults) {
         attributes: [
             // Positions
             [],
-            // Colors
+            // Tex coords
             [],
         ],
     };
@@ -147,7 +147,7 @@ function generateGridGeom(gridsize, faults) {
     for (var z=0; z < gridsize; z++) {
         for (var x=0; x < gridsize; x++) {
             gridGeom.attributes[0].push([xCoord, 0, zCoord]);
-            gridGeom.attributes[1].push([0.5, 0.5, 0.5]);
+            gridGeom.attributes[1].push([z / gridsize, x / gridsize]);
             xCoord += stepSize;
         }
         zCoord += stepSize
@@ -176,6 +176,7 @@ function loadTexture(value) {
     if (value == '') {
         // Use (1, 1, 1, 0.3) across the entire image
         window.uniformColor = [1, 1, 1, 0.3];
+        window.program = compileShader(window.vs, window.fs);
     } else if(/^#[0-9a-f]{8}$/i.test(value)) {
         // Set uniform color
         var r = Number('0x' + value.substring(1, 3));
@@ -183,17 +184,45 @@ function loadTexture(value) {
         var b = Number('0x' + value.substring(5, 7));
         var a = Number('0x' + value.substring(7, 9));
         window.uniformColor = [r, g, b, a];
+        window.program = compileShader(window.vs, window.fs);
     } else if(/[.](jpg|png)$/.test(value)) {
         // Load image
         var img = new Image();
         img.crossOrigin = 'anonymous';
         img.src = value;
         img.addEventListener('load', (_event) => {
+            // Create and bind texture
+            var slot = 0;
+            var texture = gl.createTexture();
+            gl.activeTexture(gl.TEXTURE0 + slot);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            // Configure texture
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_Y);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            // Load image to GPU
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                img
+            );
+            gl.generateMipmap(gl.TEXTURE_2D);
+
+            // Tell the next frame to use the texture shader!
             window.uniformColor = undefined;
-            // TODO: Load image into the texture
+
+            // Load the correct program
+            window.program = compileShader(window.vs, window.tfs);
         });
         img.addEventListener('error', (_event) => {
             window.uniformColor = [1, 0, 1, 0];
+            window.program = compileShader(window.vs, window.fs);
         });
     }
 }
@@ -238,6 +267,13 @@ function draw(seconds) {
 
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
     gl.useProgram(program);
+
+    // Use the texture if there is one, otherwise use the uniform color
+    if (window.uniformColor) {
+        gl.uniform4fv(program.uniforms.uniformcolor, window.uniformColor);
+    } else {
+        gl.uniform1i(program.uniforms.loadedtexture, 0);
+    }
     
     // Set up view and rotation
     var view = m4view([1,1.2,1.5], [0,0,0], [0,1,0]);
@@ -267,9 +303,11 @@ function draw(seconds) {
     );
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-    const vs = await fetch('vs.glsl').then(res => res.text());
-    const fs = await fetch('fs.glsl').then(res => res.text());
-    window.program = compileShader(vs, fs);
+    window.vs = await fetch('vs.glsl').then(res => res.text());
+    window.fs = await fetch('fs.glsl').then(res => res.text());
+    window.tfs = await fetch('tfs.glsl').then(res => res.text());
+    window.uniformColor = [1, 1, 1, 0.3];
+    window.program = compileShader(window.vs, window.fs);
 
     gl.enable(gl.DEPTH_TEST);
  
