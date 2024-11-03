@@ -15,6 +15,6 @@ void main() {
         (
             texcolor.rgb * lightcolor * lambert
         ),
-        texcolor.a
+        1.0
     );
 }

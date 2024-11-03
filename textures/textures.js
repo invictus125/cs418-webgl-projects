@@ -179,10 +179,10 @@ function loadTexture(value) {
         window.program = compileShader(window.vs, window.fs);
     } else if(/^#[0-9a-f]{8}$/i.test(value)) {
         // Set uniform color
-        var r = Number('0x' + value.substring(1, 3));
-        var g = Number('0x' + value.substring(3, 5));
-        var b = Number('0x' + value.substring(5, 7));
-        var a = Number('0x' + value.substring(7, 9));
+        var r = Number('0x' + value.substring(1, 3)) / 255.0;
+        var g = Number('0x' + value.substring(3, 5)) / 255.0;
+        var b = Number('0x' + value.substring(5, 7)) / 255.0;
+        var a = Number('0x' + value.substring(7, 9)) / 255.0;
         window.uniformColor = [r, g, b, a];
         window.program = compileShader(window.vs, window.fs);
     } else if(/[.](jpg|png)$/.test(value)) {
@@ -280,6 +280,17 @@ function draw(seconds) {
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
     var modelRot = m4rotY(seconds / 2.0);
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
+
+
+    // // var earthOrbitSun = m4rotY(seconds * earthOrbitFactor);
+    // // var earthM = m4mul(earthOrbitSun, earthTrans, earthRotation, earthScale);
+    // // var earthMv = m4mul(view, earthM);
+    // var view = m4view([0,1.2,1.5], [0,0,0], [0,1,0]);
+    // gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
+    // var cameraRot = m4rotY(seconds / 2.0);
+    // var cameraTranslate = m4trans(1, 0, 0);
+    // var camera = m4mul(cameraRot, cameraTranslate);
+    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, camera));
 
     // Set up lights
     var ld = normalize([1,1,1]);
