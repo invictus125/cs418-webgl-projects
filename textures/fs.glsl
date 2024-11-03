@@ -8,13 +8,13 @@ in vec3 vtxnormal;
 uniform vec4 uniformcolor;
 void main() {
     vec3 n = normalize(vtxnormal);
-    float lambert = max(dot(n, lightdir), 0.0);
-    float blinn = pow(dot(n, halfway), 50.0);
+    float lambert = max(dot(n, lightdir), 0.0) * (1.0 - uniformcolor.a);
+    float blinn = pow(dot(n, halfway), 50.0) * 3.0 * uniformcolor.a;
     fragColor = vec4(
         (
             uniformcolor.rgb * lightcolor * lambert
             + vec3(1,1,1) * blinn
         ),
-        uniformcolor.a
+        1.0
     );
 }

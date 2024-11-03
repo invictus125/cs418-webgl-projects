@@ -10,12 +10,10 @@ uniform sampler2D loadedtexture;
 void main() {
     vec3 n = normalize(vtxnormal);
     float lambert = max(dot(n, lightdir), 0.0);
-    float blinn = pow(dot(n, halfway), 50.0);
     vec4 texcolor = texture(loadedtexture, vTexCoord);
     fragColor = vec4(
         (
             texcolor.rgb * lightcolor * lambert
-            + vec3(1,1,1) * blinn
         ),
         texcolor.a
     );
