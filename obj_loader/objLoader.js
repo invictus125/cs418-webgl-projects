@@ -118,10 +118,17 @@ function processObjContents(obj) {
  */
 async function loadObjFile(value) {
     if(/[.]obj$/.test(value)) {
+        var specialIndices = false;
         var parsed = {
             vertices: [],
             colors: [],
             triangles: [],
+            normals: [],
+            textureCoords: [],
+        };
+        var tempBuffers = {
+            vertices: [],
+            colors: [],
             normals: [],
             textureCoords: [],
         };
@@ -132,30 +139,67 @@ async function loadObjFile(value) {
             if (/^v\s/.test(line)) {
                 // Vertex
                 var parts = line.split(/\s+/);
-                parsed.vertices.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
+                tempBuffers.vertices.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
                 if (parts.length > 4) {
-                    parsed.colors.push([parseFloat(parts[4]), parseFloat(parts[5]), parseFloat(parts[6])]);
+                    tempBuffers.colors.push([parseFloat(parts[4]), parseFloat(parts[5]), parseFloat(parts[6])]);
                 } else {
                     // Light grey
-                    parsed.colors.push([0.7, 0.7, 0.7]);
+                    tempBuffers.colors.push([0.7, 0.7, 0.7]);
                 }
             } else if (/^f\s/.test(line)) {
                 // Face
                 var parts = line.split(/\s+/);
-                parsed.triangles.push([parseInt(parts[1]) - 1, parseInt(parts[2]) - 1, parseInt(parts[3]) - 1]);
-                for (var i = 5; i < parts.length; i++) {
-                    parsed.triangles.push([parseInt(parts[1]), parseInt(parts[i-1]), parseInt(parts[i])]);
+
+                if (/\//.test(line)) {
+                    // Handle indices
+                    specialIndices = true;
+                    var startingVertex = parsed.vertices.length;
+                    for (var i = 1; i < parts.length; i++) {
+                        var tuple = parts[i].split(/\//);
+                        var vertex = parseInt(tuple[0]);
+                        var texcoord = parseInt(tuple[1]);
+                        var normal = parseInt(tuple[2]);
+                        if (!isNaN(vertex)) {
+                            parsed.vertices.push(tempBuffers.vertices[vertex-1]);
+                            parsed.colors.push(tempBuffers.colors[vertex-1]);
+                        }
+                        if (!isNaN(texcoord)) {
+                            parsed.textureCoords.push(tempBuffers.textureCoords[texcoord-1]);
+                        }
+                        if (!isNaN(normal)) {
+                            parsed.normals.push(tempBuffers.normals[normal-1]);
+                        }
+
+                        if (i == 3) {
+                            parsed.triangles.push([startingVertex, startingVertex + 1, startingVertex + 2]);
+                        } else if (i > 3) {
+                            parsed.triangles.push([startingVertex, startingVertex + i - 2, startingVertex + i - 1]);
+                        }
+                    }
+                } else {
+                    parsed.triangles.push([parseInt(parts[1]) - 1, parseInt(parts[2]) - 1, parseInt(parts[3]) - 1]);
+                    for (var i = 4; i < parts.length; i++) {
+                        parsed.triangles.push([parseInt(parts[1]), parseInt(parts[i-1]), parseInt(parts[i])]);
+                    }
                 }
             } else if (/^vn\s/.test(line)) {
                 // Vertex Normal
                 var parts = line.split(/\s+/);
-                parsed.normals.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
+                tempBuffers.normals.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
             } else if (/^vt\s/.test(line)) {
                 // Vertex Texture Coord
                 var parts = line.split(/\s+/);
-                parsed.textureCoords.push([parseFloat(parts[1]), parseFloat(parts[2])]);
+                tempBuffers.textureCoords.push([parseFloat(parts[1]), parseFloat(parts[2])]);
             }
         });
+
+        if (!specialIndices) {
+            // Move the buffers over from temp to parsed. No special handling needed.
+            parsed.vertices = tempBuffers.vertices;
+            parsed.normals = tempBuffers.normals;
+            parsed.textureCoords = tempBuffers.textureCoords;
+            parsed.colors = tempBuffers.colors;
+        }
         
         return processObjContents(parsed);
     }
@@ -169,17 +213,8 @@ async function loadObjFile(value) {
  */
 function loadTexture(value) {
     if (value == '') {
-        // Use (1, 1, 1, 0.3) across the entire image
-        window.uniformColor = [1, 1, 1, 0.3];
-        window.program = compileShader(window.vs, window.fs);
-    } else if(/^#[0-9a-f]{8}$/i.test(value)) {
-        // Set uniform color
-        var r = Number('0x' + value.substring(1, 3)) / 255.0;
-        var g = Number('0x' + value.substring(3, 5)) / 255.0;
-        var b = Number('0x' + value.substring(5, 7)) / 255.0;
-        var a = Number('0x' + value.substring(7, 9)) / 255.0;
-        window.uniformColor = [r, g, b, a];
-        window.program = compileShader(window.vs, window.fs);
+        window.program = window.programNoTex;
+        window.texture = false;
     } else if(/[.](jpg|png)$/.test(value)) {
         // Load image
         var img = new Image();
@@ -209,15 +244,13 @@ function loadTexture(value) {
             );
             gl.generateMipmap(gl.TEXTURE_2D);
 
-            // Tell the next frame to use the texture shader!
-            window.uniformColor = undefined;
-
             // Load the correct program
-            window.program = compileShader(window.vs, window.tfs);
+            window.program = window.programWithTex;
+            window.texture = true;
         });
         img.addEventListener('error', (_event) => {
-            window.uniformColor = [1, 0, 1, 0];
-            window.program = compileShader(window.vs, window.fs);
+            window.program = window.programNoTex;
+            window.texture = false;
         });
     }
 }
@@ -264,28 +297,15 @@ function draw(seconds) {
     gl.useProgram(program);
 
     // Use the texture if there is one, otherwise use the uniform color
-    if (window.uniformColor) {
-        gl.uniform4fv(program.uniforms.uniformcolor, window.uniformColor);
-    } else {
+    if (window.texture) {
         gl.uniform1i(program.uniforms.loadedtexture, 0);
     }
     
     // Set up view and rotation
     var view = m4view([0,0.5,1.5], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-    var modelRot = m4mul(m4rotY(seconds / 2.0));
+    var modelRot = m4mul(m4rotY(seconds / 2.0), m4rotX(-90));
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
-
-
-    // // var earthOrbitSun = m4rotY(seconds * earthOrbitFactor);
-    // // var earthM = m4mul(earthOrbitSun, earthTrans, earthRotation, earthScale);
-    // // var earthMv = m4mul(view, earthM);
-    // var view = m4view([0,1.2,1.5], [0,0,0], [0,1,0]);
-    // gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-    // var cameraRot = m4rotY(seconds / 2.0);
-    // var cameraTranslate = m4trans(1, 0, 0);
-    // var camera = m4mul(cameraRot, cameraTranslate);
-    // gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, camera));
 
     // Set up lights
     var ld = normalize([1,1,1]);
@@ -312,8 +332,10 @@ function draw(seconds) {
     window.vs = await fetch('vs.glsl').then(res => res.text());
     window.fs = await fetch('fs.glsl').then(res => res.text());
     window.tfs = await fetch('tfs.glsl').then(res => res.text());
-    window.uniformColor = [1, 1, 1, 0.3];
-    window.program = compileShader(window.vs, window.fs);
+    window.programNoTex = compileShader(window.vs, window.fs);
+    window.programWithTex = compileShader(window.vs, window.tfs);
+    window.program = window.programNoTex;
+    window.texture = false;
 
     gl.enable(gl.DEPTH_TEST);
  
