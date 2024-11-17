@@ -7,44 +7,41 @@
  * @returns The geometry object with a new attribute array for normals added
  */
 function addNormalsAttribute(geometry) {
+    // Create map of vertices to triangles and compute normals for each triangle
+    var triNormals = {};
+    var vertToTriMap = {};
+    geometry.triangles.forEach((triangle, idx) => {
+        var vertices = [];
+        triangle.forEach((vertex) => {
+            if (!vertToTriMap[vertex]) {
+                vertToTriMap[vertex] = [];
+            }
+            vertToTriMap[vertex].push(idx);
+            vertices.push(geometry.attributes[0][vertex]);
+        });
+        var e1 = sub(vertices[0], vertices[1]);
+        var e2 = sub(vertices[0], vertices[2]);
+        var normal = cross(e1, e2);
+        triNormals[idx] = div(normal, mag(normal));
+    });
+
     geometry.attributes.push([]);
     var normIdx = geometry.attributes.length - 1;
 
-    // BEGIN CUSTOM (TODO)
-
-
-    // END CUSTOM
-
-    // var vertices = geometry.attributes[0].length;
-    // var rowLength = Math.sqrt(vertices);
-
-    // for (var i = 0; i < vertices; i++) {
-    //     // Set vertices to use for normal computation based on whether or not this one is on a border.
-    //     var n = geometry.attributes[0][i];
-    //     var s = geometry.attributes[0][i];
-    //     var e = geometry.attributes[0][i];
-    //     var w = geometry.attributes[0][i];
-    //     if (i >= rowLength) {
-    //         s = geometry.attributes[0][i - rowLength];
-    //     }
-    //     if (i < vertices - rowLength) {
-    //         n = geometry.attributes[0][i + rowLength];
-    //     }
-    //     if (i > 0 && i % rowLength !== 0) {
-    //         // Not beginning of a row
-    //         w = geometry.attributes[0][i - 1];
-    //     }
-    //     if ((i + 1) % rowLength !== 0) {
-    //         e = geometry.attributes[0][i + 1];
-    //     }
-
-    //     // The normal for a vertex is (n - s) x (w - e) in a square grid
-    //     var normal = cross(sub(w, e), sub(n, s));
-    //     geometry.attributes[normIdx].push(normal);
-    // }
-    // for(let i = 0; i < geometry.attributes[0].length; i+=1) {
-    //     geometry.attributes[normIdx][i] = normalize(geometry.attributes[normIdx][i]);
-    // }
+    // Calculate the normal at each vertex by averaging the normals around it (all triangles it's connected to)
+    for (var v = 0; v < geometry.attributes[0].length; v++) {
+        var triangles = vertToTriMap[v];
+        var normal = [0, 0, 0];
+        if (triangles && triangles.length) {
+            triangles.forEach((triangle) => {
+                normal = add(normal, triNormals[triangle]);
+            });
+            normal = div(normal, triangles.length);
+        } else {
+            console.log('WARNING: vertex ' + v + ' is not part of any triangles');
+        }
+        geometry.attributes[normIdx].push(normal);
+    }
 
     return geometry;
 }
@@ -114,7 +111,7 @@ async function loadObjFile(value) {
             } else if (/^f\s/.test(line)) {
                 // Face
                 var parts = line.split(/\s+/);
-                parsed.triangles.push([parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3])]);
+                parsed.triangles.push([parseInt(parts[1]) - 1, parseInt(parts[2]) - 1, parseInt(parts[3]) - 1]);
                 for (var i = 5; i < parts.length; i++) {
                     parsed.triangles.push([parseInt(parts[1]), parseInt(parts[i-1]), parseInt(parts[i])]);
                 }
@@ -245,7 +242,7 @@ function draw(seconds) {
     // Set up view and rotation
     var view = m4view([1,1.2,1.5], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-    var modelRot = m4rotY(seconds / 2.0);
+    var modelRot = m4mul(m4rotY(seconds / 2.0), m4rotX(-90));
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
 
 
