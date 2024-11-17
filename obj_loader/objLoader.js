@@ -46,6 +46,33 @@ function addNormalsAttribute(geometry) {
     return geometry;
 }
 
+function scaleVertices(geometry) {
+    var maxDist = -1;
+    var avgPoint = [0, 0, 0];
+    for (var i = 0; i < geometry.attributes[0].length; i++) {
+        avgPoint = add(avgPoint, geometry.attributes[0][i]);
+        for (var j = i+1; j < geometry.attributes[0].length; j++) {
+            var dist = mag(sub(geometry.attributes[0][i], geometry.attributes[0][j]));
+            if (dist > maxDist) {
+                maxDist = dist;
+            }
+        }
+    }
+    avgPoint = div(avgPoint, geometry.attributes[0].length);
+
+    var centerOffset = sub([0, 0, 0], avgPoint);
+    var scalingFactor = 1.8 / maxDist;
+    for (var i = 0; i < geometry.attributes[0].length; i++) {
+        // Center
+        geometry.attributes[0][i] = add(geometry.attributes[0][i], centerOffset);
+
+        // Scale
+        geometry.attributes[0][i] = mul(geometry.attributes[0][i], scalingFactor);
+    }
+
+    return geometry;
+}
+
 /**
  * Takes the parsed contents of a .obj file and sets up usable geometry from them.
  *
@@ -62,6 +89,9 @@ function processObjContents(obj) {
             obj.colors,
         ],
     };
+
+    // Scale the vertices
+    geometry = scaleVertices(geometry);
 
     // Handle normals
     if (obj.normals.length) {
@@ -98,6 +128,7 @@ async function loadObjFile(value) {
         var contents = await fetch(value).then((res) => res.text());
         var lines = contents.split('\n');
         lines.forEach((line) => {
+            line = line.trim();
             if (/^v\s/.test(line)) {
                 // Vertex
                 var parts = line.split(/\s+/);
@@ -240,9 +271,9 @@ function draw(seconds) {
     }
     
     // Set up view and rotation
-    var view = m4view([1,1.2,1.5], [0,0,0], [0,1,0]);
+    var view = m4view([0,0.5,1.5], [0,0,0], [0,1,0]);
     gl.uniformMatrix4fv(program.uniforms.perspective, false, perspective);
-    var modelRot = m4mul(m4rotY(seconds / 2.0), m4rotX(-90));
+    var modelRot = m4mul(m4rotY(seconds / 2.0));
     gl.uniformMatrix4fv(program.uniforms.mv, false, m4mul(view, modelRot));
 
 
